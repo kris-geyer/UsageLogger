@@ -15,7 +15,7 @@ import net.sqlcipher.database.SQLiteDatabase;
 
 import java.io.File;
 
-public class DirectAppInitialization {
+class DirectAppInitialization {
 
     private static final String TAG = "directApp";
 
@@ -27,7 +27,7 @@ public class DirectAppInitialization {
     private MainActivity mainActivityContext;
     private SharedPreferences sharedPreferences;
 
-    ResearcherInput researcherInput;
+    private ResearcherInput researcherInput;
 
     private Boolean requestUsagePermission, requestNotificationPermission;
 
@@ -132,11 +132,7 @@ public class DirectAppInitialization {
 
     private int returnStateOfService() {
         if(requestNotificationPermission){
-            if(serviceIsRunning(ProspectiveNotificationLogger.class)){
-                return 11;
-            }else{
-                return 10;
-            }
+            return 10;
         }else{
             if(serviceIsRunning(ProspectiveLogger.class)){
                 return 11;
@@ -147,8 +143,8 @@ public class DirectAppInitialization {
     }
 
     private boolean appDatabaseExists() {
-        SQLiteDatabase db = CrossSectionalLogging.getInstance(mainActivityContext).getReadableDatabase(sharedPreferences.getString("password", "not to be used"));
-        String selectQuery = "SELECT * FROM " + CrossSectionalLoggingCols.CrossSectionalLoggingColsNames.TABLE_NAME;
+        SQLiteDatabase db = AppsSQL.getInstance(mainActivityContext).getReadableDatabase(sharedPreferences.getString("password", "not to be used"));
+        String selectQuery = "SELECT * FROM " + AppsSQLCols.AppsSQLColsName.TABLE_NAME;
         Cursor c = db.rawQuery(selectQuery, null);
         c.moveToLast();
         Log.i(TAG, "table size: " + c.getCount());
@@ -180,6 +176,7 @@ public class DirectAppInitialization {
                     Log.i(TAG, "usage statistics permission granted");
                     return 6;
                 }else{
+                    Log.i(TAG, "usage statistics permission not granted");
                     return 4;
                 }
             }else if(!requestUsagePermission){
@@ -198,6 +195,7 @@ public class DirectAppInitialization {
                         return 5;
                     }
                 }else{
+                    Log.i(TAG, "usage statistics permission not granted *2");
                     return 4;
                 }
             }

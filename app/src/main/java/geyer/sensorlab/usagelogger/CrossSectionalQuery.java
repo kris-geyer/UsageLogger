@@ -26,7 +26,6 @@ public class CrossSectionalQuery extends AsyncTask<Object, Integer, Integer> {
     private Context mContextApps;
     private SharedPreferences appPrefs;
     private MainActivity mainActivityContext;
-    private int levelOfAnalysis;
 
     // you may separate this or combined to caller class.
 
@@ -46,12 +45,17 @@ public class CrossSectionalQuery extends AsyncTask<Object, Integer, Integer> {
     @Override
     protected Integer doInBackground(Object... objects) {
         initializeObjects(objects);
+        int levelOfAnalysis = (Integer) objects[2];
         SQLiteDatabase.loadLibs(mContextApps);
 
         //return the list of installed apps for documenting installed apps
-        HashMap<String, ArrayList> appPermissions = recordInstalledApps();
+
+
+        HashMap<String, ArrayList> appPermissions = recordInstalledApps(levelOfAnalysis);
         documentApps(appPermissions.keySet());
-        storeAppRecordsInSQL(appPermissions);
+        if(levelOfAnalysis>1){
+            storeAppRecordsInSQL(appPermissions);
+        }
 
         if(databaseExists("app database")){
             if(databaseExists("permission database")){
@@ -68,31 +72,56 @@ public class CrossSectionalQuery extends AsyncTask<Object, Integer, Integer> {
         }
     }
 
-    private boolean databaseExists(String app_database) {
-        int length = 0;
-        switch (app_database){
-            case "app database":
-                SQLiteDatabase db = AppsSQL.getInstance(mContextApps).getReadableDatabase(appPrefs.getString("password", "not to be used"));
-                String selectQuery = "SELECT * FROM " + AppsSQLCols.AppsSQLColsName.TABLE_NAME;
-                Cursor c = db.rawQuery(selectQuery, null);
-                c.moveToLast();
-                length = c.getCount();
-                c.close();
-                Log.i(TAG, "table size: " + c.getCount());
-                break;
-            case "permission database":
-                SQLiteDatabase permDB = CrossSectionalLogging.getInstance(mContextApps).getReadableDatabase(appPrefs.getString("password", "not to be used"));
-                String selectPermQuery = "SELECT * FROM " + CrossSectionalLoggingCols.CrossSectionalLoggingColsNames.TABLE_NAME;
-                Cursor cPerm = permDB.rawQuery(selectPermQuery , null);
-                cPerm.moveToLast();
-                length = cPerm.getCount();
-                cPerm.close();
-                Log.i(TAG, "table size: " + cPerm.getCount());
-                break;
+    private void initializeObjects(Object[] objects) {
+        mContextApps = (Context) objects[0];
+        appPrefs = mContextApps.getSharedPreferences("app initialization prefs",Context.MODE_PRIVATE);
+
+        mainActivityContext = (MainActivity) objects[1];
+    }
+
+    private HashMap<String, ArrayList> recordInstalledApps(int levelOfAnalysis) {
+        HashMap<String, ArrayList> appPermissions = new HashMap<>();
+
+        PackageManager pm = mContextApps.getPackageManager();
+        final List<PackageInfo> appInstall= pm.getInstalledPackages(PackageManager.GET_PERMISSIONS|PackageManager.GET_RECEIVERS|
+                PackageManager.GET_SERVICES|PackageManager.GET_PROVIDERS);
+
+        for(PackageInfo pInfo:appInstall) {
+            String[] reqPermission = pInfo.requestedPermissions;
+            int[] reqPermissionFlag = new int[0];
+
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.JELLY_BEAN) {
+                reqPermissionFlag = pInfo.requestedPermissionsFlags;
+            }else{
+                if(levelOfAnalysis < 2){
+                    levelOfAnalysis = 2;
+                }
+            }
+
+            if(levelOfAnalysis > 2){
+                ArrayList<String> permissions = new ArrayList<>();
+                if (reqPermission != null){
+                    for (int i = 0; i < reqPermission.length; i++){
+                        String tempPermission = reqPermission[i];
+                        int tempPermissionFlag = reqPermissionFlag[i];
+                        boolean approved = tempPermissionFlag == 3;
+                        permissions.add(tempPermission + " $ " + approved);
+                    }
+                }
+                Log.i("app", (String) pInfo.applicationInfo.loadLabel(pm));
+                appPermissions.put(""+pInfo.applicationInfo.loadLabel(pm), permissions);
+            }else{
+                ArrayList<String> permissions = new ArrayList<>();
+                if (reqPermission != null){
+                    for (String tempPermission : reqPermission) {
+                        permissions.add("*&^" + tempPermission);
+                    }
+                }
+                Log.i("app", (String) pInfo.applicationInfo.loadLabel(pm));
+                appPermissions.put(""+pInfo.applicationInfo.loadLabel(pm), permissions);
+            }
         }
-
-
-        return length > 0;
+        return appPermissions;
     }
 
     private void documentApps(Set<String> apps) {
@@ -178,60 +207,34 @@ public class CrossSectionalQuery extends AsyncTask<Object, Integer, Integer> {
         //stop looping
     }
 
-
-    private void initializeObjects(Object[] objects) {
-        mContextApps = (Context) objects[0];
-        appPrefs = mContextApps.getSharedPreferences("app initialization prefs",Context.MODE_PRIVATE);
-
-        mainActivityContext = (MainActivity) objects[1];
-        levelOfAnalysis = (Integer) objects[2];
-    }
-
-
-    private HashMap<String, ArrayList> recordInstalledApps() {
-        HashMap<String, ArrayList> appPermissions = new HashMap<>();
-
-        PackageManager pm = mContextApps.getPackageManager();
-        final List<PackageInfo> appInstall= pm.getInstalledPackages(PackageManager.GET_PERMISSIONS|PackageManager.GET_RECEIVERS|
-                PackageManager.GET_SERVICES|PackageManager.GET_PROVIDERS);
-
-        for(PackageInfo pInfo:appInstall) {
-            String[] reqPermission = pInfo.requestedPermissions;
-            int[] reqPermissionFlag = new int[0];
-
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.JELLY_BEAN) {
-                reqPermissionFlag = pInfo.requestedPermissionsFlags;
-            }else{
-                if(levelOfAnalysis < 2){
-                    levelOfAnalysis = 2;
-                }
-            }
-
-            if(levelOfAnalysis > 2){
-                ArrayList<String> permissions = new ArrayList<>();
-                if (reqPermission != null){
-                    for (int i = 0; i < reqPermission.length; i++){
-                        String tempPermission = reqPermission[i];
-                        int tempPermissionFlag = reqPermissionFlag[i];
-                        boolean approved = tempPermissionFlag == 3;
-                        permissions.add(tempPermission + " $ " + approved);
-                    }
-                }
-                Log.i("app", (String) pInfo.applicationInfo.loadLabel(pm));
-                appPermissions.put(""+pInfo.applicationInfo.loadLabel(pm), permissions);
-            }else{
-                ArrayList<String> permissions = new ArrayList<>();
-                if (reqPermission != null){
-                    for (String tempPermission : reqPermission) {
-                        permissions.add("*&^" + tempPermission);
-                    }
-                }
-                Log.i("app", (String) pInfo.applicationInfo.loadLabel(pm));
-                appPermissions.put(""+pInfo.applicationInfo.loadLabel(pm), permissions);
-            }
+    private boolean databaseExists(String app_database) {
+        int length = 0;
+        switch (app_database){
+            case "app database":
+                SQLiteDatabase db = AppsSQL.getInstance(mContextApps).getReadableDatabase(appPrefs.getString("password", "not to be used"));
+                String selectQuery = "SELECT * FROM " + AppsSQLCols.AppsSQLColsName.TABLE_NAME;
+                Cursor c = db.rawQuery(selectQuery, null);
+                c.moveToLast();
+                length = c.getCount();
+                c.close();
+                Log.i(TAG, "table size: " + c.getCount());
+                break;
+            case "permission database":
+                SQLiteDatabase permDB = CrossSectionalLogging.getInstance(mContextApps).getReadableDatabase(appPrefs.getString("password", "not to be used"));
+                String selectPermQuery = "SELECT * FROM " + CrossSectionalLoggingCols.CrossSectionalLoggingColsNames.TABLE_NAME;
+                Cursor cPerm = permDB.rawQuery(selectPermQuery , null);
+                cPerm.moveToLast();
+                length = cPerm.getCount();
+                cPerm.close();
+                Log.i(TAG, "table size: " + cPerm.getCount());
+                break;
         }
-        return appPermissions;
+
+
+        return length > 0;
     }
+
+
 
 
     @Override

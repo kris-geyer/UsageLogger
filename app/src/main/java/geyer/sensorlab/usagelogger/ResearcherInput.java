@@ -26,7 +26,7 @@ public final class ResearcherInput {
     //is retrospective logging employed?
             RetrospectiveLoggingEmployed = false,
     //is cross sectional logging employed?
-            PerformCrossSectionalAnalysis = false,
+            PerformCrossSectionalAnalysis = true,
     //is prospective logging employed?
             ProspectiveLoggingEmployed = true,
     /**
@@ -73,7 +73,7 @@ public final class ResearcherInput {
         3 - document apps and permissions and user's response to permissions
         (performCrossSectionalAnalysis required to be true for function)
         */
-        LevelOfCrossSectionalAnalysis = 3,
+        LevelOfCrossSectionalAnalysis = 1,
     /**
      * direction for prospective logging
      */
@@ -87,8 +87,8 @@ public final class ResearcherInput {
          */
 
     /**
-     * If the level is above 1 then the app requires the usage statistics permission, notification listening permission or both.
+     * If the level is 2 or 4 then the app requires the usage statistics permission, 3 or above requires notification listening permission.
      */
-        LevelOfProspectiveLogging = 2;
+        LevelOfProspectiveLogging = 4;
 
 }

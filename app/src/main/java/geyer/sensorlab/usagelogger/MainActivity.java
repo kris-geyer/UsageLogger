@@ -33,7 +33,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     private static final String TAG = "MAIN";
 
-    SharedPreferences prefs;
+
+    private SharedPreferences prefs;
     SharedPreferences.Editor editor;
 
     //Classes
@@ -209,58 +210,69 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     private void promptAction(int i) {
         Log.i(TAG, "result of detect state: " + i);
-        switch (i){
-            //inform user
-            case 1:
-                informUser();
-                break;
-            //request password
-            case 2:
-                requestPassword();
-                break;
-            //document apps
-            case 3:
-                informAboutRequestForPermission(Constants.USAGE_STATISTIC_PERMISSION_REQUEST);
-                crossSectionalQuery.execute(getApplicationContext(), this, researcherInput.LevelOfCrossSectionalAnalysis);
-                break;
-            //request the usage permissions
-            case 4:
-                //request permissions
-                informAboutRequestForPermission(Constants.USAGE_STATISTIC_PERMISSION_REQUEST);
+        if(!prefs.getBoolean("asyncTaskRunning",false)){
+            switch (i){
+                //inform user
+                case 1:
+                    informUser();
+                    break;
+                //request password
+                case 2:
+                    requestPassword();
+                    break;
+                //document apps
+                case 3:
+                    if(!prefs.getBoolean("crossSectionalQueryRunning", false)){
+                        runCrossSectionalQuery();
+                    }
+                    break;
+                //request the usage permissions
+                case 4:
+                    //request permissions
+                    informAboutRequestForPermission(Constants.USAGE_STATISTIC_PERMISSION_REQUEST);
 
-                break;
-            //request the notification permissions
-            case 5:
-                permissionRequests.requestSpecificPermission(Constants.NOTIFICATION_LISTENER_PERMISSIONS);
-                break;
-            case 6:
-                Toast.makeText(this, "Error occurred", Toast.LENGTH_SHORT).show();
-                Log.e(TAG, "Error occurred");
-                break;
-            case 7:
-                //start retrospectively logging data
-                retrospectiveLogging.execute(this,
-                        researcherInput.UseUsageStatics,
-                        researcherInput.NumberOfDaysForUsageStats,
-                        researcherInput.UseUsageEvents,
-                        researcherInput.NumberOfDaysForUsageEvents);
-                break;
-            case 8:
-                //end of retrospective logging and no prospective logging required
-                break;
-            case 9:
-                Log.i(TAG, "call to start logging background data");
-                startProspectiveLogging(false);
-                break;
-            case 10:
-                Log.i(TAG, "call to start logging notification background data");
-                startProspectiveLogging(true);
-            case 11:
-                informServiceIsRunning();
-                break;
-            default:
-                break;
+                    break;
+                //request the notification permissions
+                case 5:
+                    informAboutRequestForPermission(Constants.NOTIFICATION_LISTENER_PERMISSIONS);
+                    break;
+                case 6:
+                    Toast.makeText(this, "Error occurred", Toast.LENGTH_SHORT).show();
+                    Log.e(TAG, "Error occurred");
+                    break;
+                case 7:
+                    //start retrospectively logging data
+                    retrospectiveLogging.execute(this,
+                            researcherInput.UseUsageStatics,
+                            researcherInput.NumberOfDaysForUsageStats,
+                            researcherInput.UseUsageEvents,
+                            researcherInput.NumberOfDaysForUsageEvents);
+                    break;
+                case 8:
+                    //end of retrospective logging and no prospective logging required
+                    break;
+                case 9:
+                    Log.i(TAG, "call to start logging background data");
+                    startProspectiveLogging(false);
+                    break;
+                case 10:
+                    Log.i(TAG, "call to start logging notification background data");
+                    startProspectiveLogging(true);
+                case 11:
+                    informServiceIsRunning();
+                    break;
+                default:
+                    break;
+            }
+        }else{
+            Log.i(TAG, "async task running");
         }
+
+    }
+
+    private void runCrossSectionalQuery() {
+        editor.putBoolean("asyncTaskRunning", true).apply();
+        crossSectionalQuery.execute(getApplicationContext(), this, researcherInput.LevelOfCrossSectionalAnalysis);
     }
 
     @Override
@@ -279,10 +291,12 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
     }
 
+
+
     private void informAboutRequestForPermission(int permissionToBeRequested) {
 
 
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        final AlertDialog.Builder builder = new AlertDialog.Builder(this);
         switch (permissionToBeRequested){
             case Constants.USAGE_STATISTIC_PERMISSION_REQUEST:
                 builder.setTitle("usage permission")
@@ -376,7 +390,15 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private void startProspectiveLogging(Boolean startNotificationService){
         Intent startLogging;
         if(startNotificationService){
-            startLogging = new Intent(this, ProspectiveNotificationLogger.class);
+            if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O){
+                startLogging = new Intent(this, ProspectiveNotificationLogger.class);
+            }else{
+
+                /**
+                 * Inform user that they don't have an advanced enough phone to listen to notifications
+                 */
+                startLogging = new Intent(this, ProspectiveLogger.class);
+            }
         }else{
             startLogging = new Intent(this, ProspectiveLogger.class);
         }
@@ -392,11 +414,14 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             bundle.putBoolean("usage log", false);
         }
 
+        if(researcherInput.PerformCrossSectionalAnalysis){
+            bundle.putBoolean("document apps", true);
+        }else{
+            bundle.putBoolean("document apps", false);
+        }
+
         startLogging.putExtras(bundle);
 
-        /**
-         * Add section on prompting the activiation of the apps broadcast receiver
-         */
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(startLogging);
@@ -415,15 +440,19 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         switch (output){
             case 1:
                 Log.i(TAG, "crossSectional databases both exist");
-                promptAction(directApp.detectState());
+                crossSectionalQueryFinished(output);
                 break;
             case 2:
                 Log.i(TAG, "crossSectional databases apps exist but permissions don't");
+                crossSectionalQueryFinished(output);
+                break;
             case 3:
                 Log.i(TAG, "crossSectional databases permission exist but apps don't");
+                crossSectionalQueryFinished(output);
                 break;
             case 4:
                 Log.i(TAG, "crossSectional neither databases apps exist");
+                crossSectionalQueryFinished(output);
                 break;
             case 5:
                 Log.i(TAG, "retrospective logging unsuccessful - events don't exist");
@@ -472,5 +501,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 break;
 
         }
+    }
+
+    private void crossSectionalQueryFinished(Integer output) {
+        editor.putBoolean("asyncTaskRunning", false).apply();
+        promptAction(directApp.detectState());
     }
 }
