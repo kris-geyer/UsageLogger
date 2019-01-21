@@ -24,7 +24,7 @@ public final class ResearcherInput {
      * direction of temporal focus for behavioural logging
      */
     //is retrospective logging employed?
-            RetrospectiveLoggingEmployed = false,
+            RetrospectiveLoggingEmployed = true,
     //is cross sectional logging employed?
             PerformCrossSectionalAnalysis = true,
     //is prospective logging employed?
@@ -54,7 +54,7 @@ public final class ResearcherInput {
      * The request will be rounded to the nearest suitable response.
      * For example if the user requests 364 days are monitored the program will increase this to 356.
      */
-    int NumberOfDaysForUsageStats = 21;
+    int NumberOfDaysForUsageStats = 365;
     //directions for the usage events
 
     /**
@@ -73,7 +73,7 @@ public final class ResearcherInput {
         3 - document apps and permissions and user's response to permissions
         (performCrossSectionalAnalysis required to be true for function)
         */
-        LevelOfCrossSectionalAnalysis = 1,
+        LevelOfCrossSectionalAnalysis = 3,
     /**
      * direction for prospective logging
      */

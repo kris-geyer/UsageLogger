@@ -1,7 +1,6 @@
 package geyer.sensorlab.usagelogger;
 
 import android.app.AlertDialog;
-import android.app.Dialog;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -15,27 +14,27 @@ import android.support.v4.content.FileProvider;
 import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.text.Editable;
 import android.util.Log;
-import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.Button;
-import android.widget.EditText;
 import android.widget.ProgressBar;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import net.sqlcipher.database.SQLiteDatabase;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Random;
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener, AsyncResult {
 
     private static final String TAG = "MAIN";
 
-
     private SharedPreferences prefs;
     SharedPreferences.Editor editor;
+
+    TextView status;
 
     //Classes
     DirectAppInitialization directApp;
@@ -47,9 +46,17 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     PackageProspectiveUsage packageProspectiveUsage;
 
 
+    /**
+     * Implement the password outlined in the ethics form
+     * @param savedInstanceState
+     */
+
+
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
         setContentView(R.layout.activity_main);
         initializeInvisibleComponents();
         initializeServiceStateListener();
@@ -72,18 +79,38 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         BroadcastReceiver localListener = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
+
                 if (intent.getBooleanExtra("dataFromProspective", false)){
                     Log.i("FROM service", "data collection on going");
-                    //relay that service if functioning properly
+                    String msg = intent.getStringExtra("dataToRelay");
+                    if(msg!= null){
+                        if(msg.equals("please close and open the screen")){
+                            status.setText(msg);
+                        }else{
+                            Log.i(TAG, msg);
+                        }
+                        if(msg.equals("event")){
+                            status.setText(R.string.dataCollectingOnGoing);
+                        }
+                    }
                 }
+
                 if(intent.getBooleanExtra("errorFromProspective", false)){
                     final String msg = intent.getStringExtra("dataToRelay");
-                    Log.i("FROM service", msg);
-                    //change string value to msg
+                    if(msg!= null){
+                        Log.i("FROM service", msg);
+                        status.setText(msg);
+                    }
                 }
+
                 if(intent.getBooleanExtra("progress bar update", false)){
                     updateProgressBar(intent.getIntExtra("progress bar progress", 0));
-
+                    String fromAsync = intent.getStringExtra("asyncTask");
+                    if(fromAsync != null){
+                        status.setText(intent.getStringExtra("asyncTask"));
+                    }else{
+                        status.setText(R.string.backgroundRunning);
+                    }
                 }
             }
 
@@ -95,17 +122,26 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     private void initializeVisibleComponents() {
-        Button request = findViewById(R.id.btnAppInit);
-        request.setOnClickListener(this);
         Button email = findViewById(R.id.btnEmail);
         email.setOnClickListener(this);
+
+        Button password = findViewById(R.id.btnGenerateNewPassword);
+        password.setOnClickListener(this);
+
+        Button showInstructions = findViewById(R.id.btnShowInstructions);
+        showInstructions.setOnClickListener(this);
+
+        Button privacy = findViewById(R.id.btnPrivacyPolicy);
+        privacy.setOnClickListener(this);
+
+        status = findViewById(R.id.tvStatus);
     }
 
     @Override
     public void onClick(View v) {
         switch (v.getId()){
-            case R.id.btnAppInit:
-                promptAction(directApp.detectState());
+            case R.id.btnGenerateNewPassword:
+                reportPassword(prefs.getString("password", "not actual password"));
                 break;
             case R.id.btnEmail:
                 if(researcherInput.PerformCrossSectionalAnalysis | researcherInput.ProspectiveLoggingEmployed){
@@ -115,6 +151,80 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 }
                 break;
         }
+    }
+
+    private void generateNewPassword() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+
+        builder.setTitle("Your password")
+                .setMessage("Press Ok to generate your password")
+                .setNeutralButton("OK", new DialogInterface.OnClickListener() {
+                    @RequiresApi(api = Build.VERSION_CODES.KITKAT)
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int i) {
+                            passwordAcceptable();
+                    }
+
+                    private void passwordAcceptable(){
+                        String password = null;
+                        try {
+                            password = generatePassword();
+                        } catch (InterruptedException e) {
+                            Log.e(TAG, e.getMessage());
+                        }
+                        if(password != null){
+                            if (password.length() >= 12) {
+
+                                editor.putBoolean("password generated", true);
+                                editor.putString("password", password);
+                                editor.putString("pdfPassword", password);
+                                editor.apply();
+
+                                reportPassword(password);
+                            }
+                        }else{
+                            status.setText(R.string.pError);
+                        }
+
+                    }
+
+                    private String generatePassword() throws InterruptedException {
+                        Ascii ascii = new Ascii();
+                        StringBuilder password = new StringBuilder();
+                        while (password.length() < 12){
+                            Random random = new Random(System.currentTimeMillis());
+                            Thread.sleep(random.nextInt(9) +1);
+
+                            int randomAsciiInt =  random.nextInt(93) + 33;
+                            Character randomAsciiChar = ascii.returnAscii(randomAsciiInt);
+                            if(randomAsciiChar != ' '){
+                                Log.i(TAG, "returned from Ascii: " + randomAsciiChar);
+                                password.append(randomAsciiChar);
+                            }
+                        }
+                        return password.toString();
+                    }
+
+                });
+        builder.create()
+                .show();
+    }
+
+    private void reportPassword(String password) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+
+        builder.setTitle("Your password")
+                .setMessage("Your password is: " + "\n" + "\n" + password)
+                .setNeutralButton("OK", new DialogInterface.OnClickListener() {
+                    @RequiresApi(api = Build.VERSION_CODES.KITKAT)
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int i) {
+                        promptAction(directApp.detectState());
+                    }
+                });
+
+        builder.create()
+                .show();
     }
 
     private void sendEmail() {
@@ -218,7 +328,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     break;
                 //request password
                 case 2:
-                    requestPassword();
+                    generateNewPassword();
                     break;
                 //document apps
                 case 3:
@@ -353,39 +463,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
     }
 
-    private void requestPassword() {
-        LayoutInflater inflater = this.getLayoutInflater();
-        //create dialog
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-
-        builder.setTitle("password")
-                .setMessage("Please specify a password that is 6 characters in length. This can include letters and/or numbers.")
-                .setView(inflater.inflate(R.layout.password_alert_dialog, null))
-                .setNeutralButton("OK", new DialogInterface.OnClickListener() {
-                    @RequiresApi(api = Build.VERSION_CODES.KITKAT)
-                    @Override
-                    public void onClick(DialogInterface dialogInterface, int i) {
-                        Dialog d = (Dialog) dialogInterface;
-                        EditText password = d.findViewById(R.id.etPassword);
-                        if (checkPassword(password.getText())) {
-                            editor.putBoolean("password generated", true);
-                            editor.putString("password", String.valueOf(password.getText()));
-                            editor.putString("pdfPassword", String.valueOf(password.getText()));
-                            editor.apply();
-                            promptAction(directApp.detectState());
-                        } else {
-                            requestPassword();
-                            Toast.makeText(MainActivity.this, "The password entered was not long enough", Toast.LENGTH_SHORT).show();
-                        }
-                    }
-
-                    private boolean checkPassword(Editable text) {
-                        return text.length() > 5;
-                    }
-                });
-        builder.create()
-                .show();
-    }
 
     private void startProspectiveLogging(Boolean startNotificationService){
         Intent startLogging;
@@ -394,9 +471,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 startLogging = new Intent(this, ProspectiveNotificationLogger.class);
             }else{
 
-                /**
-                 * Inform user that they don't have an advanced enough phone to listen to notifications
-                 */
+                status.setText(R.string.oError);
                 startLogging = new Intent(this, ProspectiveLogger.class);
             }
         }else{
@@ -504,6 +579,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     private void crossSectionalQueryFinished(Integer output) {
+        Log.i(TAG, "cross sectional query finish with result: " + output);
         editor.putBoolean("asyncTaskRunning", false).apply();
         promptAction(directApp.detectState());
     }

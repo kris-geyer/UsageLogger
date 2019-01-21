@@ -457,6 +457,7 @@ public class RetrospectiveLogging extends AsyncTask<Object, Integer, Integer> {
         Intent intent = new Intent("changeInService");
         intent.putExtra("progress bar update", true);
         intent.putExtra("progress bar progress", progressBarValue);
+        intent.putExtra("asyncTask","past usage logging");
         LocalBroadcastManager.getInstance(context).sendBroadcast(intent);
     }
 

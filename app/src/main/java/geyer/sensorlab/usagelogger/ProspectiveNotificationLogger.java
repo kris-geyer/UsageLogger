@@ -106,6 +106,8 @@ public class ProspectiveNotificationLogger extends NotificationListenerService {
             }
         }
 
+        informMain("please close and open the screen", false);
+
         return START_STICKY;
     }
 
@@ -427,7 +429,7 @@ public class ProspectiveNotificationLogger extends NotificationListenerService {
     }
 
     private void storeData(String event) {
-
+        initializeSharedPreferences();
         SQLiteDatabase database = ProspectiveSQL.getInstance(this).getWritableDatabase(prefs.getString("password", "not to be used"));
 
         final long time = System.currentTimeMillis();
@@ -450,6 +452,7 @@ public class ProspectiveNotificationLogger extends NotificationListenerService {
             if(!error){
                 Intent intent = new Intent("changeInService");
                 intent.putExtra("dataToReceive", true);
+                intent.putExtra("dataToRelay", message);
                 LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
                 Log.i("service", "data sent to main");
             }else {

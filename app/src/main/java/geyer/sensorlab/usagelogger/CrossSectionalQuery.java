@@ -54,7 +54,11 @@ public class CrossSectionalQuery extends AsyncTask<Object, Integer, Integer> {
         HashMap<String, ArrayList> appPermissions = recordInstalledApps(levelOfAnalysis);
         documentApps(appPermissions.keySet());
         if(levelOfAnalysis>1){
-            storeAppRecordsInSQL(appPermissions);
+            if(levelOfAnalysis == 2){
+                storeAppRecordsInSQL(appPermissions, false);
+            }else{
+                storeAppRecordsInSQL(appPermissions, true);
+            }
         }
 
         if(databaseExists("app database")){
@@ -147,7 +151,7 @@ public class CrossSectionalQuery extends AsyncTask<Object, Integer, Integer> {
         }
     }
 
-    private void storeAppRecordsInSQL(HashMap<String, ArrayList> appPermsList) {
+    private void storeAppRecordsInSQL(HashMap<String, ArrayList> appPermsList, boolean approvalReported) {
         //initialize the SQL cipher
         SQLiteDatabase database = CrossSectionalLogging.getInstance(mainActivityContext).getWritableDatabase(appPrefs.getString("password", "not to be used"));
         //start loop that adds each app name, if it is installed, permission, approved or not, time
@@ -163,7 +167,7 @@ public class CrossSectionalQuery extends AsyncTask<Object, Integer, Integer> {
             ArrayList permission= item.getValue();
 
             //if there are permissions
-            if(permission.size() > 0){
+            if(approvalReported){
                 for (int i = 0; i < permission.size(); i++){
                     //do something with the permissions
 
@@ -250,6 +254,7 @@ public class CrossSectionalQuery extends AsyncTask<Object, Integer, Integer> {
         Intent intent = new Intent("changeInService");
         intent.putExtra("progress bar update", true);
         intent.putExtra("progress bar progress", progressBarValue);
+        intent.putExtra("asyncTask","documenting installed apps");
         LocalBroadcastManager.getInstance(mainActivityContext).sendBroadcast(intent);
         Log.i("service", "data sent to main");
     }

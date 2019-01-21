@@ -98,6 +98,8 @@ public class ProspectiveLogger extends Service {
             }
         }
 
+        informMain("please close and open the screen", false);
+
         return START_STICKY;
     }
 
@@ -200,6 +202,7 @@ public class ProspectiveLogger extends Service {
             }
 
 
+
             private void storeAppRecordsInSQL(String appName, Context context, Boolean added) {
                 //initialize the SQL cipher
                 SQLiteDatabase.loadLibs(context);
@@ -225,8 +228,11 @@ public class ProspectiveLogger extends Service {
 
                 database.close();
 
-                Log.d(TAG, "SQL attempted to document apps");
+                /**
+                 * Document the permissions (without approval of new app if just added)
+                 */
 
+                Log.d(TAG, "SQL attempted to document apps");
 
             }
 
@@ -446,6 +452,7 @@ public class ProspectiveLogger extends Service {
             if(!error){
                 Intent intent = new Intent("changeInService");
                 intent.putExtra("dataToReceive", true);
+                intent.putExtra("dataToRelay", message);
                 LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
                 Log.i("service", "data sent to main");
             }else {

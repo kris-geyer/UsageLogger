@@ -1,4 +1,8 @@
 <resources>
     <string name="app_name">Usage Logger</string>
     <string name="password">password</string>
+    <string name="backgroundRunning">background process running</string>
+    <string name="dataCollectingOnGoing">data logging on going</string>
+    <string name="pError">password generating error, please inform researchers</string>
+    <string name="oError">Unfortunately, your phone is not capable of logging notifications, please inform the researcher</string>
 </resources>
