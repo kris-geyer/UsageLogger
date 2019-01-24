@@ -74,7 +74,7 @@ public final class ResearcherInput {
         (performCrossSectionalAnalysis required to be true for function)
         */
         LevelOfCrossSectionalAnalysis = 3,
-    /**
+    /*
      * direction for prospective logging
      */
 

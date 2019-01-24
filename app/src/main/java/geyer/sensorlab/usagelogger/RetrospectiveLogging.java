@@ -23,7 +23,6 @@ import com.itextpdf.text.pdf.PdfWriter;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
-import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashMap;
@@ -70,15 +69,29 @@ public class RetrospectiveLogging extends AsyncTask<Object, Integer, Integer> {
         }
         final Boolean documentedPastUsage = fileExists(Constants.PAST_USAGE_FILE);
         final Boolean documentedPastEvents = fileExists(Constants.PAST_EVENTS_FILE);
-        if (documentedPastUsage && !documentedPastEvents) {
-            return 5;
-        } else if (!documentedPastUsage && documentedPastEvents) {
-            return 6;
-        } else if (!documentedPastUsage && !documentedPastEvents) {
-            return 7;
-        } else {
-            return 8;
+        boolean atExtractionPoint = (boolean) objects[5];
+        if(!atExtractionPoint){
+            if (documentedPastUsage && !documentedPastEvents) {
+                return 9;
+            } else if (!documentedPastUsage && documentedPastEvents) {
+                return 10;
+            } else if (!documentedPastUsage && !documentedPastEvents) {
+                return 11;
+            } else {
+                return 12;
+            }
+        }else{
+            if (documentedPastUsage && !documentedPastEvents) {
+                return 13;
+            } else if (!documentedPastUsage && documentedPastEvents) {
+                return 14;
+            } else if (!documentedPastUsage && !documentedPastEvents) {
+                return 15;
+            } else {
+                return 16;
+            }
         }
+
     }
 
     private boolean fileExists(String file) {

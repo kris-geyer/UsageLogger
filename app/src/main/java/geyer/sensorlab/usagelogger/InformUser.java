@@ -4,13 +4,13 @@ import java.util.EmptyStackException;
 
 public class InformUser extends DirectAppInitialization {
 
-
+    ResearcherInput researcherInput = new ResearcherInput();
     InformUser(MainActivity MainActivityContext) {
         super(MainActivityContext);
     }
 
-    public StringBuilder constructMessage() throws Exception{
-        ResearcherInput researcherInput = new ResearcherInput();
+    public StringBuilder constructMessageOne(){
+
 
         StringBuilder toRelay = new StringBuilder();
         toRelay.append("This app is intended to help scientists better understand how you use your smartphone" +"\n").
@@ -26,6 +26,14 @@ public class InformUser extends DirectAppInitialization {
                 toRelay.append(".");
             }
         }
+        return toRelay;
+
+    }
+
+    public StringBuilder constructMessageTwo() throws ErrorReference {
+
+        StringBuilder toRelay = new StringBuilder();
+
 
         toRelay.append("\n").append("\n")
                 .append("This app will gather a variety of data, it will gather:")
@@ -59,7 +67,7 @@ public class InformUser extends DirectAppInitialization {
 
         if(researcherInput.ProspectiveLoggingEmployed){
             toRelay
-                .append("- when the screen is on and off")
+                    .append("- when the screen is on and off")
                     .append("\n")
                     .append("- when the phone is off and on")
                     .append("\n");
@@ -83,17 +91,19 @@ public class InformUser extends DirectAppInitialization {
                     break;
             }
         }
+            return toRelay;
+    }
 
-        toRelay.append("\n").append("\n").append("The phone has adopted a number of security measures to protect your privacy and data.").append("\n").append("\n");
+    public StringBuilder constructMessageThree(){
+        StringBuilder toRelay = new StringBuilder();
+        toRelay.append("The phone has adopted a number of security measures to protect your privacy and data.").append("\n").append("\n");
         if(researcherInput.PasswordRequired){
             toRelay.append("Your data will be stored on at least a password protected 128-bit encryption. You will be tasked with constructing a password to assist with the security. More on this later");
         }
         if(detectPermissionsState() < 6){
             toRelay.append(" you will also be asked to provide permissions for the application to access specific data subsequently.");
         }
-        toRelay.append(" A final note is that all data will be stored locally on the phone and the researcher or any other party will not receive any data until you email it.");
-
+        toRelay.append(" A final note is that all data will be stored locally on the phone and the researcher or any other party will not receive any data until you email it. Please click on privacy policy in order to review this");
         return toRelay;
-
     }
 }

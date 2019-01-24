@@ -61,19 +61,38 @@ public class CrossSectionalQuery extends AsyncTask<Object, Integer, Integer> {
             }
         }
 
-        if(databaseExists("app database")){
-            if(databaseExists("permission database")){
-                return 1;
+        boolean atPointOfExtraction = (boolean) objects[3];
+        if(!atPointOfExtraction){
+            if(databaseExists("app database")){
+                if(databaseExists("permission database")){
+                    return 1;
+                }else{
+                    return 2;
+                }
             }else{
-                return 2;
+                if(databaseExists("permission database")){
+                    return 3;
+                }else{
+                    return 4;
+                }
             }
         }else{
-            if(databaseExists("permission database")){
-                return 3;
+            if(databaseExists("app database")){
+                if(databaseExists("permission database")){
+                    return 5;
+                }else{
+                    return 6;
+                }
             }else{
-                return 4;
+                if(databaseExists("permission database")){
+                    return 7;
+                }else{
+                    return 8;
+                }
             }
         }
+
+
     }
 
     private void initializeObjects(Object[] objects) {

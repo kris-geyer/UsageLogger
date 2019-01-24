@@ -54,29 +54,29 @@ public class PackageProspectiveUsage extends AsyncTask<Object, Integer, Integer>
         if(prospectiveFileExists){
             if(appsFileExists){
                 if(crossSectionalFileExists){
-                    return 9;
+                    return 17;
                 }else{
-                    return 10;
+                    return 18;
                 }
             }else{
                 if (crossSectionalFileExists) {
-                    return 11;
+                    return 19;
                 }else{
-                    return 12;
+                    return 20;
                 }
             }
         }else{
             if(appsFileExists){
                 if(crossSectionalFileExists){
-                    return 13;
+                    return 21;
                 }else{
-                    return 14;
+                    return 22;
                 }
             }else{
                 if (crossSectionalFileExists) {
-                    return 15;
+                    return 23;
                 }else{
-                    return 16;
+                    return 24;
                 }
             }
         }

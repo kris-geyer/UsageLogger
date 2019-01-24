@@ -9,6 +9,7 @@ import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Build;
+
 import android.support.annotation.RequiresApi;
 import android.support.v4.content.FileProvider;
 import android.support.v4.content.LocalBroadcastManager;
@@ -25,14 +26,16 @@ import net.sqlcipher.database.SQLiteDatabase;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Calendar;
 import java.util.Random;
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener, AsyncResult {
 
     private static final String TAG = "MAIN";
 
-    private SharedPreferences prefs;
-    SharedPreferences.Editor editor;
+    private SharedPreferences prefs, userGeneratedRandomnessPrefs;
+    SharedPreferences.Editor editor, randomEditor;
 
     TextView status;
 
@@ -47,7 +50,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
 
     /**
-     * Implement the password outlined in the ethics form
+     * Fix service so that it informs the user that data is being collected
+     * Speed up documenting of apps
+     * Have Java determine the layout of the application view
+     *
+     *
      * @param savedInstanceState
      */
 
@@ -68,8 +75,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private void initializeInvisibleComponents() {
         SQLiteDatabase.loadLibs(this);
         prefs = getSharedPreferences("app initialization prefs", MODE_PRIVATE);
+        userGeneratedRandomnessPrefs = getSharedPreferences("random prefs", MODE_PRIVATE);
         editor = prefs.edit();
         editor.putBoolean("main in foreground", true).apply();
+        randomEditor = userGeneratedRandomnessPrefs.edit();
+        randomEditor.putLong("rTimeOne", System.currentTimeMillis()).apply();
     }
 
     private void initializeServiceStateListener() {
@@ -144,12 +154,43 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 reportPassword(prefs.getString("password", "not actual password"));
                 break;
             case R.id.btnEmail:
-                if(researcherInput.PerformCrossSectionalAnalysis | researcherInput.ProspectiveLoggingEmployed){
-                    packageProspectiveUsage.execute(this);
+                int dataExtractionRequired = DeterminePointOfDataExtraction.pointOfCrossSectionalLogging + DeterminePointOfDataExtraction.pointOfRetrospectiveLogging;
+                if(dataExtractionRequired > 2){
+                        conductExportPointDataExtraction(dataExtractionRequired);
                 }else{
-                    sendEmail();
+                    if(researcherInput.ProspectiveLoggingEmployed){
+                        packageProspectiveUsage = new PackageProspectiveUsage(this);
+                        packageProspectiveUsage.execute(this);
+                    }else{
+                        sendEmail();
+                    }
                 }
                 break;
+        }
+    }
+
+    private void conductExportPointDataExtraction(int dataExtractionRequired) {
+        if(dataExtractionRequired == 4){
+        //both data sources will be required
+        retrospectiveLogging.execute(this,
+                researcherInput.UseUsageStatics,
+                researcherInput.NumberOfDaysForUsageStats,
+                researcherInput.UseUsageEvents,
+                researcherInput.NumberOfDaysForUsageEvents,
+                true);
+    }else {
+            if (DeterminePointOfDataExtraction.pointOfRetrospectiveLogging == 2) {
+                //conduct retrospective logging
+                retrospectiveLogging.execute(this,
+                        researcherInput.UseUsageStatics,
+                        researcherInput.NumberOfDaysForUsageStats,
+                        researcherInput.UseUsageEvents,
+                        researcherInput.NumberOfDaysForUsageEvents,
+                        true);
+            } else {
+                //conduct crossSectional logging
+                crossSectionalQuery.execute(getApplicationContext(), this, researcherInput.LevelOfCrossSectionalAnalysis, true);
+            }
         }
     }
 
@@ -173,7 +214,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                             Log.e(TAG, e.getMessage());
                         }
                         if(password != null){
-                            if (password.length() >= 12) {
+                            if (password.length() >= 10) {
 
                                 editor.putBoolean("password generated", true);
                                 editor.putString("password", password);
@@ -189,20 +230,55 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     }
 
                     private String generatePassword() throws InterruptedException {
-                        Ascii ascii = new Ascii();
-                        StringBuilder password = new StringBuilder();
-                        while (password.length() < 12){
-                            Random random = new Random(System.currentTimeMillis());
-                            Thread.sleep(random.nextInt(9) +1);
 
-                            int randomAsciiInt =  random.nextInt(93) + 33;
-                            Character randomAsciiChar = ascii.returnAscii(randomAsciiInt);
-                            if(randomAsciiChar != ' '){
-                                Log.i(TAG, "returned from Ascii: " + randomAsciiChar);
-                                password.append(randomAsciiChar);
+                        Long randomValues[] = new Long[4];
+                        randomValues[0] = userGeneratedRandomnessPrefs.getLong("rTimeOne", 1);
+                        randomValues[1] = userGeneratedRandomnessPrefs.getLong("rTimeTwo", 1);
+                        randomValues[2] = userGeneratedRandomnessPrefs.getLong("rTimeThree", 1);
+                        randomValues[3] = userGeneratedRandomnessPrefs.getLong("rTimeFour", 1);
+
+                        if(
+                                randomValues[0] == 1||
+                                randomValues[1] == 1||
+                                randomValues[2] == 1||
+                                randomValues[3] == 1){
+                            return "probs";
+                        }else{
+                            Ascii ascii = new Ascii();
+                            StringBuilder password = new StringBuilder();
+                            Random userRandomInitial = new Random(randomValues[0]);
+                            while (password.length() < 12){
+                                Random userRandom ;
+                                userRandom = new Random(randomValues[userRandomInitial.nextInt(4)]);
+
+                                Random random = new Random(System.currentTimeMillis()* randomValues[userRandomInitial.nextInt(4)]);
+                                Thread.sleep(userRandom.nextInt(40) +1);
+
+                                int randomAsciiInt =  random.nextInt(93) + 33;
+                                Character randomAsciiChar = ascii.returnAscii(randomAsciiInt);
+                                if(randomAsciiChar != ' '){
+                                    Log.i(TAG, "returned from Ascii: " + randomAsciiChar);
+                                    password.append(randomAsciiChar);
+                                }
                             }
+                            Arrays.fill(randomValues,null);
+                            Calendar c = Calendar.getInstance();
+                            c.set(Calendar.HOUR_OF_DAY, 1);
+                            c.set(Calendar.MINUTE, 1);
+                            c.set(Calendar.MILLISECOND, 1);
+                            c.set(Calendar.SECOND, 1);
+
+                            editor
+                                    .putLong("rTimeOne", c.getTimeInMillis())
+                                    .putLong("rTimeTwo", c.getTimeInMillis())
+                                    .putLong("rTimeThree", c.getTimeInMillis())
+                                    .putLong("rTimeFour", c.getTimeInMillis())
+                                    .apply();
+
+                            Log.i(TAG, "current password: " + prefs.getLong("rTimeOne", 0) + " - " + prefs.getLong("rTimeFour", 0));
+
+                            return password.toString();
                         }
-                        return password.toString();
                     }
 
                 });
@@ -320,69 +396,64 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     private void promptAction(int i) {
         Log.i(TAG, "result of detect state: " + i);
-        if(!prefs.getBoolean("asyncTaskRunning",false)){
-            switch (i){
-                //inform user
-                case 1:
-                    informUser();
-                    break;
-                //request password
-                case 2:
-                    generateNewPassword();
-                    break;
-                //document apps
-                case 3:
-                    if(!prefs.getBoolean("crossSectionalQueryRunning", false)){
-                        runCrossSectionalQuery();
-                    }
-                    break;
-                //request the usage permissions
-                case 4:
-                    //request permissions
-                    informAboutRequestForPermission(Constants.USAGE_STATISTIC_PERMISSION_REQUEST);
+        switch (i){
+            //inform user
+            case 1:
+                informUser(1);
+                break;
+            //request password
+            case 2:
+                generateNewPassword();
+                break;
+            //document apps
+            case 3:
+                if(!prefs.getBoolean("crossSectionalQueryRunning", false)){
+                    runCrossSectionalQuery();
+                }
+                break;
+            //request the usage permissions
+            case 4:
+                //request permissions
+                informAboutRequestForPermission(Constants.USAGE_STATISTIC_PERMISSION_REQUEST);
 
-                    break;
-                //request the notification permissions
-                case 5:
-                    informAboutRequestForPermission(Constants.NOTIFICATION_LISTENER_PERMISSIONS);
-                    break;
-                case 6:
-                    Toast.makeText(this, "Error occurred", Toast.LENGTH_SHORT).show();
-                    Log.e(TAG, "Error occurred");
-                    break;
-                case 7:
-                    //start retrospectively logging data
-                    retrospectiveLogging.execute(this,
-                            researcherInput.UseUsageStatics,
-                            researcherInput.NumberOfDaysForUsageStats,
-                            researcherInput.UseUsageEvents,
-                            researcherInput.NumberOfDaysForUsageEvents);
-                    break;
-                case 8:
-                    //end of retrospective logging and no prospective logging required
-                    break;
-                case 9:
-                    Log.i(TAG, "call to start logging background data");
-                    startProspectiveLogging(false);
-                    break;
-                case 10:
-                    Log.i(TAG, "call to start logging notification background data");
-                    startProspectiveLogging(true);
-                case 11:
-                    informServiceIsRunning();
-                    break;
-                default:
-                    break;
-            }
-        }else{
-            Log.i(TAG, "async task running");
+                break;
+            //request the notification permissions
+            case 5:
+                informAboutRequestForPermission(Constants.NOTIFICATION_LISTENER_PERMISSIONS);
+                break;
+            case 6:
+                Toast.makeText(this, "No action to take", Toast.LENGTH_SHORT).show();
+                Log.e(TAG, "Error occurred");
+                break;
+            case 7:
+                //start retrospectively logging data
+                retrospectiveLogging.execute(this,
+                        researcherInput.UseUsageStatics,
+                        researcherInput.NumberOfDaysForUsageStats,
+                        researcherInput.UseUsageEvents,
+                        researcherInput.NumberOfDaysForUsageEvents,
+                        false);
+                break;
+            case 8:
+                //end of retrospective logging and no prospective logging required
+                break;
+            case 9:
+                Log.i(TAG, "call to start logging background data");
+                startProspectiveLogging(false);
+                break;
+            case 10:
+                Log.i(TAG, "call to start logging notification background data");
+                startProspectiveLogging(true);
+            case 11:
+                informServiceIsRunning();
+                break;
+            default:
+                break;
         }
-
     }
 
     private void runCrossSectionalQuery() {
-        editor.putBoolean("asyncTaskRunning", true).apply();
-        crossSectionalQuery.execute(getApplicationContext(), this, researcherInput.LevelOfCrossSectionalAnalysis);
+        crossSectionalQuery.execute(getApplicationContext(), this, researcherInput.LevelOfCrossSectionalAnalysis,false);
     }
 
     @Override
@@ -401,10 +472,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
     }
 
-
-
     private void informAboutRequestForPermission(int permissionToBeRequested) {
-
 
         final AlertDialog.Builder builder = new AlertDialog.Builder(this);
         switch (permissionToBeRequested){
@@ -434,35 +502,61 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 .show();
     }
 
-    private void informUser() {
+    private void informUser(int whichMessageToCall) {
         try {
-            StringBuilder message = informUser.constructMessage();
             AlertDialog.Builder builder = new AlertDialog.Builder(this);
-
-            builder.setTitle("usage app")
-                    .setMessage(message)
-                    .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+            switch(whichMessageToCall){
+                case 1:
+                    builder.setTitle("Usage app")
+                            .setMessage(informUser.constructMessageOne())
+                            .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                                @Override
+                                public void onClick(DialogInterface dialog, int which) {
+                                    randomEditor.putLong("rTimeTwo", System.currentTimeMillis()).apply();
+                                    callNextMessage(2);
+                                }
+                            });
+                    break;
+                case 2:
+                    builder.setTitle("Usage app")
+                            .setMessage(informUser.constructMessageTwo())
+                            .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                                @Override
+                                public void onClick(DialogInterface dialogInterface, int i) {
+                                    randomEditor.putLong("rTimeThree", System.currentTimeMillis()).apply();
+                                    callNextMessage(3);
+                                }
+                            });
+                    break;
+                default:
+                    builder.setTitle("Usage app")
+                            .setMessage(informUser.constructMessageThree())
+                            .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                                @Override
+                                public void onClick(DialogInterface dialogInterface, int i) {
+                                    randomEditor.putLong("rTimeFour", System.currentTimeMillis()).apply();
+                                    editor.putBoolean("instructions shown", true)
+                                            .apply();
+                                    promptAction(directApp.detectState());
+                                }
+                            }).setNegativeButton("View privacy policy", new DialogInterface.OnClickListener() {
                         @Override
-                        public void onClick(DialogInterface dialog, int which) {
-                            editor.putBoolean("instructions shown", true)
-                                    .apply();
-                            promptAction(directApp.detectState());
+                        public void onClick(DialogInterface dialogInterface, int i) {
+                            Uri uri = Uri.parse("https://psychsensorlab.com/privacy-agreement-for-apps/");
+                            Intent launchBrowser = new Intent(Intent.ACTION_VIEW, uri);
+                            startActivityForResult(launchBrowser, Constants.SHOW_PRIVACY_POLICY);
                         }
-                    }).setNegativeButton("View privacy policy", new DialogInterface.OnClickListener() {
-                @Override
-                public void onClick(DialogInterface dialog, int which) {
-                    Uri uri = Uri.parse("https://psychsensorlab.com/privacy-agreement-for-apps/");
-                    Intent launchBrowser = new Intent(Intent.ACTION_VIEW, uri);
-                    startActivityForResult(launchBrowser, Constants.SHOW_PRIVACY_POLICY);
-                }
-            });
-            builder.create()
-                    .show();
+                    });
+            }
+            builder.create().show();
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
+    private void callNextMessage(int i) {
+        informUser(i);
+    }
 
     private void startProspectiveLogging(Boolean startNotificationService){
         Intent startLogging;
@@ -515,72 +609,134 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         switch (output){
             case 1:
                 Log.i(TAG, "crossSectional databases both exist");
-                crossSectionalQueryFinished(output);
+                crossSectionalQueryFinished(output, false);
                 break;
             case 2:
                 Log.i(TAG, "crossSectional databases apps exist but permissions don't");
-                crossSectionalQueryFinished(output);
+                crossSectionalQueryFinished(output, false);
                 break;
             case 3:
                 Log.i(TAG, "crossSectional databases permission exist but apps don't");
-                crossSectionalQueryFinished(output);
+                crossSectionalQueryFinished(output, false);
                 break;
             case 4:
                 Log.i(TAG, "crossSectional neither databases apps exist");
-                crossSectionalQueryFinished(output);
+                crossSectionalQueryFinished(output, false);
                 break;
             case 5:
-                Log.i(TAG, "retrospective logging unsuccessful - events don't exist");
+                Log.i(TAG, "crossSectional databases both exist");
+                crossSectionalQueryFinished(output, true);
                 break;
             case 6:
-                Log.i(TAG, "retrospective logging unsuccessful - stats don't exist");
+                Log.i(TAG, "crossSectional databases apps exist but permissions don't");
+                crossSectionalQueryFinished(output, true);
                 break;
             case 7:
-                Log.i(TAG, "retrospective logging unsuccessful - events and stats don't exist");
+                Log.i(TAG, "crossSectional databases permission exist but apps don't");
+                crossSectionalQueryFinished(output, true);
                 break;
             case 8:
-                Log.i(TAG, "retrospective logging successful");
-                promptAction(directApp.detectState());
+                Log.i(TAG, "crossSectional neither databases apps exist");
+                crossSectionalQueryFinished(output, true);
                 break;
             case 9:
-                Log.i(TAG, "crossSectional packaging successful");
-                sendEmail();
+                Log.i(TAG, "retrospective logging unsuccessful - events don't exist");
+                retrospectiveQueryFinished(output,false);
                 break;
             case 10:
-                Log.i(TAG, "crossSectional packaging unsuccessful - cross sectional file doesn't exist. Prospective file exists");
-                sendEmail();
+                Log.i(TAG, "retrospective logging unsuccessful - stats don't exist");
+                retrospectiveQueryFinished(output,false);
                 break;
             case 11:
-                Log.i(TAG, "crossSectional packaging unsuccessful - app file doesn't exist. Prospective file exists");
-                sendEmail();
+                Log.i(TAG, "retrospective logging unsuccessful - events and stats don't exist");
+                retrospectiveQueryFinished(output,false);
                 break;
             case 12:
-                Log.i(TAG, "crossSectional packaging unsuccessful - neither file exists. Prospective file exists");
-                sendEmail();
+                Log.i(TAG, "retrospective logging successful");
+                retrospectiveQueryFinished(output,false);
                 break;
             case 13:
-                Log.i(TAG, "crossSectional packaging unsuccessful - App and cross section file exists, Prospective file does not exists");
-                sendEmail();
+                Log.i(TAG, "retrospective logging unsuccessful - events don't exist");
+                retrospectiveQueryFinished(output,true);
                 break;
             case 14:
-                Log.i(TAG, "crossSectional packaging unsuccessful - app file doesn't exists, Prospective file does not exists");
-                sendEmail();
+                Log.i(TAG, "retrospective logging unsuccessful - stats don't exist");
+                retrospectiveQueryFinished(output,true);
                 break;
             case 15:
-                Log.i(TAG, "crossSectional packaging unsuccessful - cross sectional file doesn't exists, Prospective file does not exists");
-                sendEmail();
+                Log.i(TAG, "retrospective logging unsuccessful - events and stats don't exist");
+                retrospectiveQueryFinished(output,true);
                 break;
             case 16:
-                Log.i(TAG, "crossSectional packaging unsuccessful - none of the files exists, Prospective file does not exists");
+                Log.i(TAG, "retrospective logging successful");
+                retrospectiveQueryFinished(output,true);
+                break;
+            case 17:
+                Log.i(TAG, "packaging successful");
+                sendEmail();
+                break;
+            case 18:
+                Log.i(TAG, "packaging unsuccessful - cross sectional file doesn't exist. Prospective file exists");
+                sendEmail();
+                break;
+            case 19:
+                Log.i(TAG, "packaging unsuccessful - app file doesn't exist. Prospective file exists");
+                sendEmail();
+                break;
+            case 20:
+                Log.i(TAG, "packaging unsuccessful - neither file exists. Prospective file exists");
+                sendEmail();
+                break;
+            case 21:
+                Log.i(TAG, "packaging unsuccessful - App and cross section file exists, Prospective file does not exists");
+                sendEmail();
+                break;
+            case 22:
+                Log.i(TAG, "packaging unsuccessful - app file doesn't exists, Prospective file does not exists");
+                sendEmail();
+                break;
+            case 23:
+                Log.i(TAG, "packaging unsuccessful - cross sectional file doesn't exists, Prospective file does not exists");
+                sendEmail();
+                break;
+            case 24:
+                Log.i(TAG, "packaging unsuccessful - none of the files exists, Prospective file does not exists");
                 sendEmail();
                 break;
 
         }
     }
 
-    private void crossSectionalQueryFinished(Integer output) {
+    private void retrospectiveQueryFinished(Integer output, boolean progressToNextPointOfExtraction) {
+        Log.i(TAG, "Retrospective query finished with result: " + output);
+        if(progressToNextPointOfExtraction){
+            if(DeterminePointOfDataExtraction.pointOfCrossSectionalLogging == 2){
+                crossSectionalQuery = new CrossSectionalQuery(this);
+                crossSectionalQuery.execute(getApplicationContext(), this, researcherInput.LevelOfCrossSectionalAnalysis, true);
+            }else{
+                if(researcherInput.ProspectiveLoggingEmployed){
+                    retrospectiveLogging = new RetrospectiveLogging(this);
+                    packageProspectiveUsage.execute(this);
+                }else{
+                    sendEmail();
+                }
+            }
+        }else{
+            promptAction(directApp.detectState());
+        }
+    }
+
+    private void crossSectionalQueryFinished(Integer output, boolean progressToExtraction) {
         Log.i(TAG, "cross sectional query finish with result: " + output);
-        editor.putBoolean("asyncTaskRunning", false).apply();
-        promptAction(directApp.detectState());
+        if(!progressToExtraction){
+            promptAction(directApp.detectState());
+        }else{
+            if(researcherInput.ProspectiveLoggingEmployed){
+                retrospectiveLogging = new RetrospectiveLogging(this);
+                packageProspectiveUsage.execute(this);
+            }else{
+                sendEmail();
+            }
+        }
     }
 }

@@ -30,6 +30,7 @@ import android.util.Log;
 import net.sqlcipher.Cursor;
 import net.sqlcipher.database.SQLiteDatabase;
 
+import java.nio.file.FileSystemNotFoundException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -48,9 +49,11 @@ public class ProspectiveLogger extends Service {
 
     private static final String TAG = "LOGGER";
 
+    private static int NOTIFICATION_ID = 8675664;
+
     BroadcastReceiver screenReceiver, appReceiver;
-    SharedPreferences prefs;
-    SharedPreferences.Editor editor;
+    SharedPreferences prefs, serviceDirectionPrefs;
+    SharedPreferences.Editor editor, serviceDirectionEditor;
 
     Handler handler;
     IdentifyAppInForeground identifyAppInForeground;
@@ -63,44 +66,129 @@ public class ProspectiveLogger extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
 
-        initializeService();
-        initializeSQLCipher();
         initializeSharedPreferences();
+        initializeSQLCipher();
+        callNotification();
         initializeHandler();
 
-        if(flags == 0){
-            //retrieve data from bundle
-            if (intent.hasExtra("has extras")){
-                Bundle bundle = intent.getExtras();
-                if(bundle != null){
-                    Log.i(TAG, "bundle extra (usage log): " + bundle.getBoolean("usage log"));
-                    if(bundle.getBoolean("usage log")){
-
-                        Log.i("Bundle", "true");
-                        initializeBroadcastReceivers();
-                    }else{
-                        Log.i("Bundle", "false");
-                        initializeBroadcastReceiversWithoutUsageCapabilities();
-                    }
-                    if(bundle.getBoolean("document apps")){
-                        Log.i(TAG, "bundle included a request to initialize the apps");
-                        initializeAppBroadcastReceiver();
-                    }else{
-                        Log.i(TAG, "bundle did not include a request to initialize the apps");
-                    }
-
-                }else{
-                    Log.i(TAG, "bundle was null");
-                    initializeBroadcastReceiversWithoutUsageCapabilities();
-                }
-            }else{
-                initializeBroadcastReceiversWithoutUsageCapabilities();
-            }
+        Boolean callFromMain = callCameFromMain(intent);
+        Log.i(TAG, "From main: " + callFromMain);
+        if(callFromMain){
+            utilizeDirectionFromMain(intent);
+        }else{
+            requestSavedDirectionForService();
         }
-
         informMain("please close and open the screen", false);
 
         return START_STICKY;
+    }
+
+    private boolean callCameFromMain(Intent intent) {
+            Bundle bundle = intent.getExtras();
+            return !bundle.getBoolean("from_restart_service");
+    }
+
+    private void utilizeDirectionFromMain(Intent intent) {
+        determineService(intent);
+        savedDirectionForService(intent);
+    }
+
+    private void determineService(Intent intent) {
+        Bundle bundle = intent.getExtras();
+        Log.i(TAG, "bundle extra (usage log): " + bundle.getBoolean("usage log"));
+        if (bundle.getBoolean("usage log")) {
+            Log.i("Bundle", "true");
+            initializeBroadcastReceivers();
+        } else {
+            Log.i("Bundle", "false");
+            initializeBroadcastReceiversWithoutUsageCapabilities();
+        }
+        if (bundle.getBoolean("document apps")) {
+            Log.i(TAG, "bundle included a request to initialize the apps");
+            initializeAppBroadcastReceiver();
+        } else {
+            Log.i(TAG, "bundle did not include a request to initialize the apps");
+        }
+    }
+
+    private void savedDirectionForService(Intent intent) {
+        Bundle bundle = intent.getExtras();
+        if (bundle.getBoolean("usage log")) {
+            serviceDirectionEditor.putBoolean("usage log", true);
+        } else {
+            Log.i("Bundle", "false");
+            serviceDirectionEditor.putBoolean("usage log", false);
+        }
+        if (bundle.getBoolean("document apps")) {
+            serviceDirectionEditor.putBoolean("app log", true);
+        } else {
+            serviceDirectionEditor.putBoolean("app log", false);
+        }
+        serviceDirectionEditor.apply();
+    }
+
+    private void requestSavedDirectionForService() {
+
+        if (serviceDirectionPrefs.getBoolean("usage log",false)) {
+            Log.i("Bundle", "true");
+            initializeBroadcastReceivers();
+        } else {
+            Log.i("Bundle", "false");
+            initializeBroadcastReceiversWithoutUsageCapabilities();
+        }
+        if (serviceDirectionPrefs.getBoolean("document apps", false)) {
+            Log.i(TAG, "bundle included a request to initialize the apps");
+            initializeAppBroadcastReceiver();
+        } else {
+            Log.i(TAG, "bundle did not include a request to initialize the apps");
+        }
+    }
+
+    private void callNotification() {
+        Notification note = initializeService();
+        startForeground(NOTIFICATION_ID, note);
+    }
+
+    private Notification initializeService() {
+
+        String contentTitle = "Usage Logger",
+                contentText = "Usage Logger is recording data";
+
+
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+
+            NotificationChannel channel = new NotificationChannel("usage logger", getString(R.string.app_name), NotificationManager.IMPORTANCE_DEFAULT);
+            channel.enableLights(false);
+            channel.enableVibration(false);
+            channel.setSound(null,null);
+            channel.setLockscreenVisibility(Notification.VISIBILITY_PRIVATE);
+
+            channel.setShowBadge(true);
+            if (manager != null) {
+                manager.createNotificationChannel(channel);
+            }
+
+        }
+
+        NotificationCompat.Builder nfc = new NotificationCompat.Builder(getApplicationContext(),"usage logger")
+                .setSmallIcon(R.drawable.ic_prospective_logger)
+                .setLargeIcon(BitmapFactory.decodeResource(getResources(), R.drawable.ic_prospective_logger))
+                .setPriority(NotificationCompat.PRIORITY_MAX)
+                .setCategory(NotificationCompat.CATEGORY_SERVICE)
+                .setVisibility(NotificationCompat.VISIBILITY_SECRET) //This hides the notification from lock screen
+                .setContentTitle(contentTitle)
+                .setContentText("Usage Logger is collecting data")
+                .setOngoing(true);
+
+
+        nfc.setContentTitle(contentTitle);
+        nfc.setContentText(contentText);
+        nfc.setStyle(new NotificationCompat.BigTextStyle().bigText(contentText).setBigContentTitle(contentTitle));
+        nfc.setWhen(System.currentTimeMillis());
+
+        return nfc.build();
+
     }
 
 
@@ -201,8 +289,6 @@ public class ProspectiveLogger extends Service {
                 storeAppRecordsInSQL( appOfInterest, context, added);
             }
 
-
-
             private void storeAppRecordsInSQL(String appName, Context context, Boolean added) {
                 //initialize the SQL cipher
                 SQLiteDatabase.loadLibs(context);
@@ -250,72 +336,12 @@ public class ProspectiveLogger extends Service {
 
     private void initializeSharedPreferences() {
         prefs = getSharedPreferences("app initialization prefs", MODE_PRIVATE);
+        serviceDirectionPrefs = getSharedPreferences("service direction prefs", MODE_PRIVATE);
         editor = prefs.edit();
         editor.apply();
-    }
 
-    private void initializeService() {
-        Log.i(TAG, "running");
-
-        if (Build.VERSION.SDK_INT >= 26) {
-            if (Build.VERSION.SDK_INT > 26) {
-                String CHANNEL_ONE_ID = "sensor.example. geyerk1.inspect.screenservice";
-                String CHANNEL_ONE_NAME = "Screen service";
-                NotificationChannel notificationChannel;
-                notificationChannel = new NotificationChannel(CHANNEL_ONE_ID,
-                        CHANNEL_ONE_NAME, NotificationManager.IMPORTANCE_MIN);
-                notificationChannel.setShowBadge(true);
-                notificationChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
-                NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-                assert manager != null;
-                manager.createNotificationChannel(notificationChannel);
-
-                Bitmap icon = BitmapFactory.decodeResource(getResources(), R.drawable.ic_prospective_logger);
-                Notification notification = new Notification.Builder(getApplicationContext())
-                        .setChannelId(CHANNEL_ONE_ID)
-                        .setContentTitle("Recording data")
-                        .setContentText("activity logger is collecting data")
-                        .setOngoing(true)
-                        .setSmallIcon(R.drawable.ic_prospective_logger)
-                        .setLargeIcon(icon)
-                        .build();
-
-                Intent notificationIntent = new Intent(getApplicationContext(),MainActivity.class);
-                notificationIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-                notification.contentIntent = PendingIntent.getActivity(getApplicationContext(), 0, notificationIntent, 0);
-
-                startForeground(101, notification);
-            } else {
-                startForeground(101, updateNotification());
-            }
-        } else {
-            Intent notificationIntent = new Intent(this, MainActivity.class);
-
-            PendingIntent pendingIntent = PendingIntent.getActivity(this, 0,
-                    notificationIntent, 0);
-
-            Notification notification = new NotificationCompat.Builder(this)
-                    .setContentTitle("Recording data")
-                    .setOngoing(true)
-                    .setContentText("activity logger is collecting data")
-                    .setContentIntent(pendingIntent).build();
-
-            startForeground(101, notification);
-        }
-    }
-
-    private Notification updateNotification() {
-
-        PendingIntent pendingIntent = PendingIntent.getActivity(this, 0,
-                new Intent(this, MainActivity.class), 0);
-
-        return new NotificationCompat.Builder(this)
-                .setContentTitle("Recording data")
-                .setContentText("activity logger is collecting data")
-                .setSmallIcon(R.drawable.ic_prospective_logger)
-                .setContentIntent(pendingIntent)
-                .setOngoing(true)
-                .setOngoing(true).build();
+        serviceDirectionEditor = serviceDirectionPrefs.edit();
+        serviceDirectionEditor.apply();
     }
 
     private void initializeSQLCipher() {
@@ -401,6 +427,7 @@ public class ProspectiveLogger extends Service {
     }
 
     private void initializeBroadcastReceiversWithoutUsageCapabilities() {
+        Log.i(TAG, "call for broadcast receiver without usage capabilities");
         screenReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
@@ -469,6 +496,8 @@ public class ProspectiveLogger extends Service {
     public void onDestroy() {
         super.onDestroy();
         unregisterReceiver(screenReceiver);
-        unregisterReceiver(appReceiver);
+        if(serviceDirectionPrefs.getBoolean("document apps", false)){
+            unregisterReceiver(appReceiver);
+        }
     }
 }

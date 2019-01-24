@@ -105,10 +105,10 @@ class DirectAppInitialization {
             state = 2;
             if(sharedPreferences.getBoolean("password generated", false) || !researcherInput.PasswordRequired){
 
-                if(appDatabaseExists() || !researcherInput.PerformCrossSectionalAnalysis){
+                if(appDatabaseExists() || !researcherInput.PerformCrossSectionalAnalysis || DeterminePointOfDataExtraction.pointOfCrossSectionalLogging == 2){
                     state = detectPermissionsState();
                     if(state == 6){
-                        if(researcherInput.RetrospectiveLoggingEmployed){
+                        if(researcherInput.RetrospectiveLoggingEmployed && DeterminePointOfDataExtraction.pointOfRetrospectiveLogging == 1){
                             if(!fileExists(Constants.PAST_USAGE_FILE)) {
                                 return 7;
                             }else{
